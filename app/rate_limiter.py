@@ -65,7 +65,7 @@ def sliding_window_bytes_check(
 
     members_in_window = results[1]
     used_bytes = sum(
-        int(m.split(b":")[1]) if isinstance(m, bytes) else int(m.split(":")[1])
+        int(m.split(b":")[1].split(b"-")[0]) if isinstance(m, bytes) else int(m.split(":")[1].split("-")[0])
         for m in members_in_window
     )
 
