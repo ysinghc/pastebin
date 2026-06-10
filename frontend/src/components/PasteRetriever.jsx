@@ -6,10 +6,14 @@ import { useState } from 'react';
 import { getPaste } from '../api';
 import { useApi } from '../hooks';
 import { ErrorAlert, LoadingSpinner, RateLimitInfo } from './Alerts';
+import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Textarea } from './ui/textarea';
+import { CopyButton } from './ui/copy-button';
 
 export function PasteRetriever({ initialPasteId = '' }) {
   const [pasteId, setPasteId] = useState(initialPasteId);
-  const [copied, setCopied] = useState(false);
 
   const {
     loading,
@@ -35,73 +39,49 @@ export function PasteRetriever({ initialPasteId = '' }) {
     }
   };
 
-  const handleCopyContent = async () => {
-    if (data?.content) {
-      try {
-        await navigator.clipboard.writeText(data.content);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } catch (err) {
-        console.error('Failed to copy:', err);
-      }
-    }
-  };
-
   const handleClear = () => {
     resetApiState();
     setPasteId('');
-    setCopied(false);
   };
 
   const formatTTL = (seconds) => {
-    if (seconds < 0) {
-      return 'expired';
-    }
-    if (seconds < 60) {
-      return `${seconds}s`;
-    }
-    if (seconds < 3600) {
-      const minutes = Math.ceil(seconds / 60);
-      return `${minutes}m`;
-    }
-    const hours = Math.ceil(seconds / 3600);
-    return `${hours}h`;
+    if (seconds < 0) return 'expired';
+    if (seconds < 60) return `${seconds}s`;
+    if (seconds < 3600) return `${Math.ceil(seconds / 60)}m`;
+    return `${Math.ceil(seconds / 3600)}h`;
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Retrieve Paste</h2>
-
-      {error && (
-        <div className="mb-4">
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-2xl font-bold text-gray-900">Retrieve Paste</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {error && (
           <ErrorAlert
             error={error}
             onDismiss={clearError}
             onRetry={() => handleSubmit({ preventDefault: () => {} })}
           />
-        </div>
-      )}
+        )}
 
-      {rateLimitInfo && (
-        <div className="mb-4">
+        {rateLimitInfo && (
           <RateLimitInfo rateLimitInfo={rateLimitInfo} />
-        </div>
-      )}
+        )}
 
-      <form onSubmit={handleSubmit} className="mb-6">
-        <div className="flex gap-2">
-          <input
+        <form onSubmit={handleSubmit} className="flex gap-2">
+          <Input
             type="text"
             value={pasteId}
             onChange={(e) => setPasteId(e.target.value)}
             disabled={loading}
             placeholder="Enter paste ID..."
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed font-mono text-sm"
+            className="font-mono text-sm"
           />
-          <button
+          <Button
             type="submit"
             disabled={loading || !pasteId.trim()}
-            className="px-6 py-2 bg-purple-600 text-white font-medium rounded-md hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+            className="gap-2"
           >
             {loading ? (
               <>
@@ -111,60 +91,58 @@ export function PasteRetriever({ initialPasteId = '' }) {
             ) : (
               'Fetch'
             )}
-          </button>
-        </div>
-      </form>
+          </Button>
+        </form>
 
-      {data && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between bg-gray-50 p-3 rounded border border-gray-200">
-            <div className="space-y-1">
-              <p className="text-xs text-gray-500">Paste ID</p>
-              <p className="text-sm font-mono font-medium text-gray-900">{pasteId}</p>
+        {data && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between bg-gray-50 p-3 rounded-md border border-gray-200">
+              <div className="space-y-1">
+                <p className="text-xs text-gray-500">Paste ID</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-mono font-medium text-gray-900">{pasteId}</p>
+                  <CopyButton text={pasteId} label="Copy" />
+                </div>
+              </div>
+              <div className="space-y-1 text-right">
+                <p className="text-xs text-gray-500">Expires in</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {formatTTL(data.ttl_remaining_seconds)}
+                </p>
+              </div>
             </div>
-            <div className="space-y-1 text-right">
-              <p className="text-xs text-gray-500">Expires in</p>
-              <p className="text-sm font-medium text-gray-900">
-                {formatTTL(data.ttl_remaining_seconds)}
-              </p>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-gray-700">
+                  Content
+                </label>
+                <CopyButton text={data.content} label="Copy Content" />
+              </div>
+              <Textarea
+                value={data.content}
+                readOnly
+                className="h-72 bg-gray-50 font-mono text-sm"
+              />
             </div>
+
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleClear}
+              className="w-full"
+            >
+              Clear
+            </Button>
           </div>
+        )}
 
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Content
-              </label>
-              <button
-                type="button"
-                onClick={handleCopyContent}
-                className="text-xs px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded transition-colors"
-              >
-                {copied ? '✓ Copied!' : 'Copy'}
-              </button>
-            </div>
-            <textarea
-              value={data.content}
-              readOnly
-              className="w-full h-72 px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 font-mono text-sm"
-            />
+        {!data && !loading && !error && (
+          <div className="py-12 text-center">
+            <p className="text-gray-500">Enter a paste ID to retrieve its content</p>
           </div>
-
-          <button
-            type="button"
-            onClick={handleClear}
-            className="w-full px-4 py-2 bg-gray-200 text-gray-700 font-medium rounded-md hover:bg-gray-300 transition-colors"
-          >
-            Clear
-          </button>
-        </div>
-      )}
-
-      {!data && !loading && !error && (
-        <div className="py-12 text-center">
-          <p className="text-gray-500">Enter a paste ID to retrieve its content</p>
-        </div>
-      )}
-    </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

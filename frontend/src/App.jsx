@@ -4,6 +4,7 @@
 
 import { useState } from 'react';
 import { PasteCreator, PasteRetriever, HealthStatus } from './components';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs';
 import './App.css';
 
 function App() {
@@ -12,13 +13,6 @@ function App() {
 
   const handlePasteCreated = (pasteId) => {
     setCreatedPasteId(pasteId);
-    // Optionally switch to retrieve tab
-    // setActiveTab('retrieve');
-  };
-
-  const handleRetrieveWithId = (pasteId) => {
-    setCreatedPasteId(pasteId);
-    setActiveTab('retrieve');
   };
 
   return (
@@ -31,9 +25,6 @@ function App() {
               <h1 className="text-3xl font-bold text-gray-900">Pastebin</h1>
               <p className="text-sm text-gray-600 mt-1">Share code and text snippets with ease</p>
             </div>
-            <div className="text-right text-xs text-gray-500">
-              <p>Backend: {import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}</p>
-            </div>
           </div>
         </div>
       </header>
@@ -45,40 +36,22 @@ function App() {
           <HealthStatus />
         </div>
 
-        {/* Tabs */}
-        <div className="mb-6 flex gap-4 border-b border-gray-200">
-          <button
-            onClick={() => setActiveTab('create')}
-            className={`px-4 py-3 font-medium border-b-2 transition-colors ${
-              activeTab === 'create'
-                ? 'border-purple-600 text-purple-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Create Paste
-          </button>
-          <button
-            onClick={() => setActiveTab('retrieve')}
-            className={`px-4 py-3 font-medium border-b-2 transition-colors ${
-              activeTab === 'retrieve'
-                ? 'border-purple-600 text-purple-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Retrieve Paste
-          </button>
-        </div>
+        <Tabs defaultValue="create" onValueChange={setActiveTab}>
+          <div className="mb-6 flex justify-center">
+            <TabsList className="w-fit">
+              <TabsTrigger value="create">Create Paste</TabsTrigger>
+              <TabsTrigger value="retrieve">Retrieve Paste</TabsTrigger>
+            </TabsList>
+          </div>
 
-        {/* Tab Content */}
-        <div className="space-y-4">
-          {activeTab === 'create' && (
+          <TabsContent value="create">
             <PasteCreator onPasteCreated={handlePasteCreated} />
-          )}
+          </TabsContent>
 
-          {activeTab === 'retrieve' && (
+          <TabsContent value="retrieve">
             <PasteRetriever initialPasteId={createdPasteId} />
-          )}
-        </div>
+          </TabsContent>
+        </Tabs>
       </main>
 
       {/* Footer */}
@@ -88,7 +61,7 @@ function App() {
             <p>Built with React + Vite | Backend: FastAPI + Redis</p>
             <p className="mt-1">
               <a
-                href={import.meta.env.VITE_API_BASE_URL + '/docs  ' || 'http://localhost:8000/docs'}
+                href={import.meta.env.VITE_API_BASE_URL + '/docs' || 'http://localhost:8000/docs'}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-purple-600 hover:text-purple-700"
