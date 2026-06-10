@@ -4,6 +4,7 @@ import redis.exceptions
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, field_validator
 
@@ -52,6 +53,14 @@ app = FastAPI(
     description="A simple pastebin service with rate limiting.",
     version="0.1.3",
     lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://pastebin.ysinghc.in"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.add_exception_handler(
