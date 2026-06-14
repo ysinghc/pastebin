@@ -1,77 +1,103 @@
-/**
- * Main App component for the Pastebin frontend
- */
-
 import { useState } from 'react';
-import { PasteCreator, PasteRetriever, HealthStatus } from './components';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Omnibox, FluidCreator, FluidViewer, HealthStatus } from './components';
+import { Code2 } from 'lucide-react';
 import './App.css';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('create');
-  const [createdPasteId, setCreatedPasteId] = useState('');
+  // mode can be: 'idle', 'creating', 'retrieving'
+  const [mode, setMode] = useState('idle');
+  
+  // Data passed between states
+  const [initialPasteContent, setInitialPasteContent] = useState('');
+  const [retrievalPasteId, setRetrievalPasteId] = useState('');
 
-  const handlePasteCreated = (pasteId) => {
-    setCreatedPasteId(pasteId);
+  const handleOmniboxAction = (action, value) => {
+    if (action === 'create') {
+      setInitialPasteContent(value);
+      setMode('creating');
+    } else if (action === 'retrieve') {
+      setRetrievalPasteId(value);
+      setMode('retrieving');
+    }
+  };
+
+  const handleCancel = () => {
+    setMode('idle');
+    setInitialPasteContent('');
+    setRetrievalPasteId('');
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Pastebin</h1>
-              <p className="text-sm text-gray-600 mt-1">Share code and text snippets with ease</p>
-            </div>
-          </div>
+    <div className="min-h-screen relative flex flex-col justify-center overflow-hidden">
+      
+      {/* Background ambient light */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] bg-white/[0.02] blur-[120px] rounded-full pointer-events-none"></div>
+
+      {/* Header Branding (absolute top left) */}
+      <motion.div 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5, duration: 1 }}
+        className="absolute top-8 left-8 flex items-center space-x-3 select-none pointer-events-none"
+      >
+        <div className="w-8 h-8 rounded-xl bg-white/10 backdrop-blur-md border border-white/10 flex items-center justify-center">
+          <Code2 size={16} className="text-white/70" />
         </div>
-      </header>
+        <span className="text-white/60 font-semibold tracking-widest text-xs uppercase">Pastebin</span>
+      </motion.div>
 
-      {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 py-8">
-        {/* Health Status */}
-        <div className="mb-6">
-          <HealthStatus />
-        </div>
+      {/* Main Orchestration Area */}
+      <main className="w-full px-4 z-10 relative">
+        <AnimatePresence mode="wait">
+          
+          {mode === 'idle' && (
+            <motion.div
+              key="idle"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="flex justify-center mb-10">
+                <div className="w-16 h-16 rounded-3xl bg-white/5 border border-white/10 shadow-2xl flex items-center justify-center">
+                  <Code2 size={24} className="text-white/80" />
+                </div>
+              </div>
+              <Omnibox onAction={handleOmniboxAction} />
+            </motion.div>
+          )}
 
-        <Tabs defaultValue="create" onValueChange={setActiveTab}>
-          <div className="mb-6 flex justify-center">
-            <TabsList className="w-fit">
-              <TabsTrigger value="create">Create Paste</TabsTrigger>
-              <TabsTrigger value="retrieve">Retrieve Paste</TabsTrigger>
-            </TabsList>
-          </div>
+          {mode === 'creating' && (
+            <motion.div
+              key="creating"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.4, type: 'spring', bounce: 0.2 }}
+            >
+              <FluidCreator initialContent={initialPasteContent} onCancel={handleCancel} />
+            </motion.div>
+          )}
 
-          <TabsContent value="create">
-            <PasteCreator onPasteCreated={handlePasteCreated} />
-          </TabsContent>
+          {mode === 'retrieving' && (
+            <motion.div
+              key="retrieving"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.4, type: 'spring', bounce: 0.2 }}
+            >
+              <FluidViewer pasteId={retrievalPasteId} onCancel={handleCancel} />
+            </motion.div>
+          )}
 
-          <TabsContent value="retrieve">
-            <PasteRetriever initialPasteId={createdPasteId} />
-          </TabsContent>
-        </Tabs>
+        </AnimatePresence>
       </main>
 
-      {/* Footer */}
-      <footer className="mt-12 bg-gray-100 border-t border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 py-6">
-          <div className="text-center text-sm text-gray-600">
-            <p>Built with React + Vite | Backend: FastAPI + Redis</p>
-            <p className="mt-1">
-              <a
-                href={import.meta.env.VITE_API_BASE_URL + '/docs' || 'http://localhost:8000/docs'}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-purple-600 hover:text-purple-700"
-              >
-                API Documentation
-              </a>
-            </p>
-          </div>
-        </div>
-      </footer>
+      {/* Quiet Health Status */}
+      <HealthStatus />
+
     </div>
   );
 }

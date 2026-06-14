@@ -126,8 +126,15 @@ export async function createPaste(content, ttl = '10m') {
  * Retrieve a paste
  */
 export async function getPaste(pasteId) {
+  // Sanitize pasteId to prevent path traversal or URL injection
+  // The backend uses urlsafe base64, so it should only contain alphanumeric and -_
+  const sanitizedId = pasteId.trim();
+  if (!/^[A-Za-z0-9_-]+$/.test(sanitizedId)) {
+    throw new APIError('Invalid Paste ID format. ID must be alphanumeric.', 400, { error: 'invalid_id' });
+  }
+
   try {
-    const response = await fetch(`${API_BASE_URL}/paste/${pasteId}`);
+    const response = await fetch(`${API_BASE_URL}/paste/${encodeURIComponent(sanitizedId)}`);
     
     const headers = Object.fromEntries(response.headers.entries());
     const data = await response.json();
