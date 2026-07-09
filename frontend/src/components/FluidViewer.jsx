@@ -59,24 +59,22 @@ export function FluidViewer({ pasteId, onCancel }) {
 
   return (
     <motion.div
+      id="viewer-container"
       layoutId="omnibox-container"
-      className="w-full max-w-5xl mx-auto bg-black/40 backdrop-blur-3xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[75vh]"
+      className="w-full max-w-5xl mx-auto bg-[#0a0a0a] border border-neutral-900 rounded-none flex flex-col h-[70vh] min-h-[500px]"
     >
       {/* Top Header */}
-      <motion.div 
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="flex justify-between items-center px-6 py-4 border-b border-white/5 bg-white/5"
+      <div 
+        className="flex justify-between items-center px-5 py-3 border-b border-neutral-900 bg-neutral-950/50"
       >
         <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2 bg-black/30 px-3 py-1.5 rounded-lg border border-white/5 shadow-inner">
-            <Search size={14} className="text-white/40" />
-            <span className="text-white/90 font-mono text-sm tracking-wide">{pasteId}</span>
+          <div className="flex items-center space-x-2 bg-neutral-950 px-3 py-1.5 rounded-none border border-neutral-900">
+            <Search size={12} className="text-neutral-500" />
+            <span id="viewer-paste-id" className="text-neutral-300 font-mono text-xs tracking-wider select-all">{pasteId}</span>
           </div>
           {data && (
-            <div className="flex items-center space-x-1.5 text-white/50 text-sm bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
-              <Clock size={14} />
+            <div id="viewer-ttl" className="flex items-center space-x-1.5 text-neutral-400 text-xs bg-neutral-950 px-3 py-1.5 rounded-none border border-neutral-900 font-mono uppercase tracking-wider">
+              <Clock size={12} />
               <span>{formatTTL(data.ttl_remaining_seconds)} left</span>
             </div>
           )}
@@ -86,27 +84,30 @@ export function FluidViewer({ pasteId, onCancel }) {
           {/* Prominent Copy Button in Header */}
           {data && (
             <button
+              id="btn-copy-code"
               onClick={() => copyToClipboard(data.content)}
-              className="flex items-center space-x-2 bg-white text-black px-4 py-1.5 rounded-lg font-semibold text-sm hover:scale-105 active:scale-95 transition-transform"
+              className="flex items-center space-x-2 bg-white text-black px-4 py-1.5 rounded-none font-bold font-mono text-[10px] uppercase tracking-widest transition-colors hover:bg-neutral-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-black"
             >
-              {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-              <span>{copied ? 'Copied!' : 'Copy Code'}</span>
+              {copied ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+              <span>{copied ? 'COPIED' : 'COPY'}</span>
             </button>
           )}
 
-          <div className="w-px h-6 bg-white/10"></div>
+          <div className="w-px h-4 bg-neutral-900"></div>
           
           <button 
+            id="btn-close-viewer"
             onClick={onCancel}
-            className="p-1.5 rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+            className="p-1 hover:bg-neutral-900 text-neutral-600 hover:text-white transition-colors border border-transparent hover:border-neutral-800 rounded-none focus:outline-none focus-visible:ring-1 focus-visible:ring-white/50"
+            aria-label="Close viewer"
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
-      </motion.div>
+      </div>
 
       {/* Main Area */}
-      <div className="flex-1 relative overflow-hidden">
+      <div className="flex-1 relative overflow-hidden bg-black">
         <AnimatePresence mode="wait">
           {loading ? (
             <motion.div 
@@ -114,24 +115,25 @@ export function FluidViewer({ pasteId, onCancel }) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 flex flex-col items-center justify-center text-white/40"
+              className="absolute inset-0 flex flex-col items-center justify-center text-neutral-500"
             >
-              <RefreshCw size={24} className="animate-spin mb-4" />
-              <p className="text-sm font-medium tracking-wide">Retrieving snippet...</p>
+              <RefreshCw size={18} className="animate-spin mb-3 text-neutral-600" />
+              <p className="text-[10px] font-mono tracking-widest uppercase">Retrieving snippet...</p>
             </motion.div>
           ) : error ? (
             <motion.div 
               key="error"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="absolute inset-0 flex flex-col items-center justify-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="absolute inset-0 flex flex-col items-center justify-center px-4"
             >
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-6 py-4 rounded-2xl flex flex-col items-center shadow-lg">
-                <X size={32} className="mb-2 opacity-50" />
-                <p className="font-semibold text-center max-w-sm">{error.message || 'Failed to retrieve paste.'}</p>
+              <div className="bg-neutral-950 border border-neutral-900 text-rose-500 px-6 py-5 rounded-none flex flex-col items-center max-w-md font-mono text-xs uppercase tracking-wider">
+                <X size={20} className="mb-3 text-rose-600" />
+                <p className="font-bold text-center max-w-sm leading-relaxed">{error.message || 'Failed to retrieve paste.'}</p>
                 <button 
+                  id="btn-error-return-search"
                   onClick={onCancel}
-                  className="mt-6 px-6 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white/70 text-sm font-medium transition-colors"
+                  className="mt-6 px-5 py-2.5 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-white font-mono text-[10px] uppercase tracking-widest transition-colors rounded-none focus:outline-none focus-visible:ring-1 focus-visible:ring-white/50"
                 >
                   Return to Search
                 </button>
@@ -142,7 +144,7 @@ export function FluidViewer({ pasteId, onCancel }) {
               key="editor"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 0.5 }}
+              transition={{ duration: 0.3 }}
               className="h-full w-full relative group"
             >
               <Editor
@@ -154,11 +156,11 @@ export function FluidViewer({ pasteId, onCancel }) {
                 options={{
                   readOnly: true,
                   minimap: { enabled: false },
-                  fontSize: 15,
+                  fontSize: 14,
                   fontFamily: "'Geist Mono', 'Fira Code', monospace",
                   wordWrap: 'on',
                   lineNumbersMinChars: 4,
-                  padding: { top: 32, bottom: 32 },
+                  padding: { top: 24, bottom: 24 },
                   scrollBeyondLastLine: false,
                   smoothScrolling: true,
                   renderLineHighlight: 'none',
@@ -170,7 +172,6 @@ export function FluidViewer({ pasteId, onCancel }) {
           ) : null}
         </AnimatePresence>
       </div>
-
     </motion.div>
   );
 }

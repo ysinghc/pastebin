@@ -111,36 +111,36 @@ export function FluidCreator({ initialContent = '', onCancel }) {
 
   return (
     <motion.div
+      id="creator-container"
       layoutId="omnibox-container"
-      className="w-full max-w-5xl mx-auto bg-black/40 backdrop-blur-3xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[75vh]"
+      className="w-full max-w-5xl mx-auto bg-[#0a0a0a] border border-neutral-900 rounded-none flex flex-col h-[70vh] min-h-[500px]"
     >
       {/* Top Header */}
-      <motion.div 
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="flex justify-between items-center px-6 py-4 border-b border-white/5 bg-white/5"
+      <div 
+        className="flex justify-between items-center px-5 py-3 border-b border-neutral-900 bg-neutral-950/50"
       >
         <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 rounded-full bg-white/20"></div>
-            <span className="text-white/70 font-medium tracking-wide text-sm">New Snippet</span>
+          <div className="flex items-center space-x-2.5">
+            <div className="w-1.5 h-1.5 bg-neutral-700"></div>
+            <span className="text-neutral-400 font-mono tracking-widest text-xs uppercase select-none">New Snippet</span>
           </div>
-          <div className={`text-xs font-mono px-2 py-1 rounded transition-colors ${isAtLimit ? 'bg-red-500/20 text-red-400' : isNearingLimit ? 'bg-yellow-500/20 text-yellow-400' : 'bg-white/5 text-white/40'}`}>
+          <div className={`text-[10px] font-mono px-2 py-0.5 border border-neutral-900 transition-colors uppercase tracking-wider ${isAtLimit ? 'bg-red-950/30 text-red-400 border-red-900' : isNearingLimit ? 'bg-yellow-950/30 text-yellow-500 border-yellow-900' : 'bg-neutral-950 text-neutral-500'}`}>
             {(byteCount / 1024).toFixed(1)}KB / 50KB Limit
           </div>
         </div>
         
         <button 
+          id="btn-close-creator"
           onClick={onCancel}
-          className="p-1.5 rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+          className="p-1 hover:bg-neutral-900 text-neutral-600 hover:text-white transition-colors border border-transparent hover:border-neutral-800 rounded-none focus:outline-none focus-visible:ring-1 focus-visible:ring-white/50"
+          aria-label="Close editor"
         >
-          <X size={18} />
+          <X size={16} />
         </button>
-      </motion.div>
+      </div>
 
       {/* Main Editor Area */}
-      <div className="flex-1 relative overflow-hidden">
+      <div className="flex-1 relative overflow-hidden bg-black">
         <Editor
           height="100%"
           language={language}
@@ -149,11 +149,11 @@ export function FluidCreator({ initialContent = '', onCancel }) {
           onMount={handleEditorMount}
           options={{
             minimap: { enabled: false },
-            fontSize: 15,
+            fontSize: 14,
             fontFamily: "'Geist Mono', 'Fira Code', monospace",
             wordWrap: 'on',
             lineNumbersMinChars: 4,
-            padding: { top: 32, bottom: 32 },
+            padding: { top: 24, bottom: 24 },
             scrollBeyondLastLine: false,
             smoothScrolling: true,
             cursorBlinking: "smooth",
@@ -169,81 +169,84 @@ export function FluidCreator({ initialContent = '', onCancel }) {
       <AnimatePresence>
         {successData && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="absolute bottom-24 left-1/2 -translate-x-1/2 bg-white text-black px-6 py-4 rounded-2xl shadow-[0_0_40px_rgba(255,255,255,0.2)] flex items-center space-x-4 z-50"
+            className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-neutral-950 border border-neutral-850 text-white px-5 py-4 rounded-none flex items-center space-x-4 z-50 font-mono text-[11px] uppercase tracking-wider"
           >
-            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-black/5">
-              <Sparkles size={20} />
+            <div className="flex items-center justify-center w-6 h-6 border border-neutral-800 bg-neutral-900 text-emerald-500">
+              <Check size={12} />
             </div>
             <div>
-              <p className="font-semibold text-sm">Paste published!</p>
-              <p className="text-xs text-black/60">Expires in {successData.expires_in}</p>
+              <p className="font-bold text-white/90">Snippet Published</p>
+              <p className="text-[10px] text-neutral-500">EXPIRES IN {successData.expires_in.toUpperCase()}</p>
             </div>
-            <div className="h-8 w-px bg-black/10 mx-2"></div>
+            <div className="h-6 w-px bg-neutral-900 mx-1"></div>
             <button
+              id="btn-copy-success-id"
               onClick={() => copyToClipboard(successData.id)}
-              className="flex items-center space-x-2 bg-black text-white px-4 py-2 rounded-xl text-sm font-medium hover:scale-105 active:scale-95 transition-transform"
+              className="flex items-center space-x-2 bg-white text-black px-4 py-2 border border-white hover:bg-neutral-200 transition-colors rounded-none font-bold font-mono text-[10px] focus:outline-none focus-visible:ring-2 focus-visible:ring-black"
             >
-              {copied ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
-              <span>{copied ? 'Copied ID' : 'Copy ID'}</span>
+              {copied ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+              <span>{copied ? 'COPIED' : 'COPY ID'}</span>
             </button>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Bottom Action Bar */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="flex items-center justify-between px-6 py-4 border-t border-white/5 bg-black/20 backdrop-blur-md"
+      <div 
+        className="flex items-center justify-between px-5 py-3 border-t border-neutral-900 bg-neutral-950"
       >
         <div className="flex items-center space-x-4">
           <div className="relative group">
             <select
+              id="select-language"
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
-              className="appearance-none bg-white/5 hover:bg-white/10 border border-white/10 text-white/90 text-sm font-medium rounded-xl pl-4 pr-10 py-2 outline-none cursor-pointer transition-colors"
+              className="appearance-none bg-neutral-950 hover:bg-neutral-900 border border-neutral-900 text-neutral-400 hover:text-white text-[10px] font-mono tracking-widest uppercase pl-3 pr-10 py-2.5 outline-none cursor-pointer transition-colors rounded-none focus:border-neutral-700 focus-visible:ring-1 focus-visible:ring-white/30 min-w-[140px]"
+              aria-label="Select syntax language"
             >
-              <option value="plaintext">Plain Text</option>
-              <option value="javascript">JavaScript</option>
-              <option value="python">Python</option>
-              <option value="json">JSON</option>
-              <option value="html">HTML</option>
-              <option value="css">CSS</option>
-              <option value="markdown">Markdown</option>
+              <option value="plaintext" className="bg-neutral-950 text-neutral-300">Plain Text</option>
+              <option value="javascript" className="bg-neutral-950 text-neutral-300">JavaScript</option>
+              <option value="python" className="bg-neutral-950 text-neutral-300">Python</option>
+              <option value="json" className="bg-neutral-950 text-neutral-300">JSON</option>
+              <option value="html" className="bg-neutral-950 text-neutral-300">HTML</option>
+              <option value="css" className="bg-neutral-950 text-neutral-300">CSS</option>
+              <option value="markdown" className="bg-neutral-950 text-neutral-300">Markdown</option>
             </select>
-            <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none" />
+            <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-600 pointer-events-none" />
           </div>
 
           <div className="relative group">
             <select
+              id="select-ttl"
               value={ttl}
               onChange={(e) => setTtl(e.target.value)}
-              className="appearance-none bg-transparent hover:bg-white/5 border border-transparent hover:border-white/10 text-white/70 text-sm font-medium rounded-xl pl-4 pr-10 py-2 outline-none cursor-pointer transition-colors"
+              className="appearance-none bg-transparent hover:bg-neutral-900 border border-transparent hover:border-neutral-900 text-neutral-500 hover:text-neutral-300 text-[10px] font-mono tracking-widest uppercase pl-3 pr-10 py-2.5 outline-none cursor-pointer transition-colors rounded-none focus:border-neutral-700 focus-visible:ring-1 focus-visible:ring-white/30 min-w-[140px]"
+              aria-label="Select expiration time"
             >
-              <option value="10m">Burn in 10m</option>
-              <option value="1h">Burn in 1h</option>
+              <option value="10m" className="bg-neutral-950 text-neutral-300">Burn in 10m</option>
+              <option value="1h" className="bg-neutral-950 text-neutral-300">Burn in 1h</option>
             </select>
-            <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
+            <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-600 pointer-events-none" />
           </div>
         </div>
 
         <button
+          id="btn-publish-paste"
           onClick={handleSubmit}
           disabled={loading || !content.trim() || isAtLimit}
-          className="flex items-center space-x-2 bg-white text-black px-6 py-2.5 rounded-xl font-medium text-sm hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 transition-all"
+          className="flex items-center space-x-2 bg-white hover:bg-neutral-200 text-black px-6 py-2.5 rounded-none font-bold font-mono text-[10px] uppercase tracking-widest transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
         >
           {loading ? (
-            <div className="w-4 h-4 rounded-full border-2 border-black border-t-transparent animate-spin"></div>
+            <div className="w-3.5 h-3.5 border-2 border-black border-t-transparent animate-spin"></div>
           ) : (
-            <Play size={16} fill="currentColor" />
+            <Play size={12} fill="currentColor" />
           )}
           <span>{isAtLimit ? 'Limit Exceeded' : 'Publish'}</span>
         </button>
-      </motion.div>
+      </div>
     </motion.div>
   );
 }
