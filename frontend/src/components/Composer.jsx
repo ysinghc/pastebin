@@ -33,10 +33,6 @@ export function Composer() {
   const overBy = bytes - MAX_PASTE_BYTES;
   const language = languageChoice === 'auto' ? detected : languageChoice;
 
-  useEffect(() => {
-    document.title = 'Pastebin: text that deletes itself';
-  }, []);
-
   // Detection and draft saving both wait for a pause in typing.
   useEffect(() => {
     const timer = setTimeout(() => {

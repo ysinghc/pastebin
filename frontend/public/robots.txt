@@ -1,5 +1,15 @@
 # Pastes are short-lived and meant for whoever holds the link, so only the
-# home page is open to crawlers.
+# home page is open to crawlers. Everything the home page needs to render
+# (scripts, styles, fonts, icons, the social preview image) and the sitemap
+# stay open too, or search engines would see an empty page.
 User-agent: *
 Allow: /$
+Allow: /assets/
+Allow: /favicon.svg
+Allow: /favicon-96x96.png
+Allow: /apple-touch-icon.png
+Allow: /og-image.png
+Allow: /sitemap.xml
 Disallow: /
+
+Sitemap: https://pastebin.ysinghc.in/sitemap.xml

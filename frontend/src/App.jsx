@@ -1,6 +1,7 @@
 import { Moon, Plus, Sun } from 'lucide-react';
 import { useHealth, useTheme } from './hooks';
 import { linkHandler, parsePath, usePathname } from './lib/router';
+import { usePageSeo } from './lib/seo';
 import { Composer } from './components/Composer';
 import { MessagePage, PasteView } from './components/PasteView';
 import { Notice } from './components/controls';
@@ -43,6 +44,7 @@ export default function App() {
   const route = parsePath(pathname);
   const health = useHealth();
   const [theme, toggleTheme] = useTheme();
+  usePageSeo(route.name);
 
   return (
     <div className="app">
