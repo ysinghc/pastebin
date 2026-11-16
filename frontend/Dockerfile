@@ -1,31 +1,26 @@
-# Multi-stage build for frontend production deployment
-FROM node:18-alpine as builder
+# Multi-stage build for serving the frontend from nginx.
+# Production runs on Cloudflare Workers (see wrangler.jsonc); this image is for
+# self-hosting.
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
 COPY package*.json ./
-COPY tailwind.config.js postcss.config.js vite.config.js ./
-
-# Install dependencies
 RUN npm ci
 
-# Copy source
+COPY vite.config.js wrangler.jsonc index.html ./
 COPY src ./src
 COPY public ./public
-COPY index.html ./
 
-# Build
 RUN npm run build
 
-# Production stage
 FROM nginx:alpine
 
-# Copy built files
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy nginx config if needed
-# COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Paste links such as /aB3x_9kLm2Q.py are client-side routes, so anything that
+# is not a file falls back to the app.
+RUN printf 'server {\n  listen 80;\n  root /usr/share/nginx/html;\n  location / {\n    try_files $uri /index.html;\n  }\n}\n' > /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 

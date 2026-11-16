@@ -1,116 +1,110 @@
-/**
- * Custom hook for managing API calls with state management
- * Handles loading, error, and success states
- */
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { getHealth } from './api';
+import { loadThemePreference, saveThemePreference } from './lib/storage';
 
-import { useState, useCallback } from 'react';
-
-/**
- * Hook for managing async API operations
- * @returns {Object} Object with state and action handlers
- */
-export function useApi() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [data, setData] = useState(null);
-  const [rateLimitInfo, setRateLimitInfo] = useState(null);
-
-  const execute = useCallback(async (apiCall) => {
-    setLoading(true);
-    setError(null);
-    setData(null);
-    setRateLimitInfo(null);
-
-    try {
-      const { data: responseData, rateLimitInfo: rlInfo } = await apiCall();
-      setData(responseData);
-      if (rlInfo) {
-        setRateLimitInfo(rlInfo);
-      }
-      return responseData;
-    } catch (err) {
-      setError({
-        message: err.message,
-        status: err.status,
-        type: err.error?.error,
-        rateLimitInfo: err.rateLimitInfo,
-      });
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const clearError = useCallback(() => {
-    setError(null);
-  }, []);
-
-  const reset = useCallback(() => {
-    setLoading(false);
-    setError(null);
-    setData(null);
-    setRateLimitInfo(null);
-  }, []);
-
-  return {
-    loading,
-    error,
-    data,
-    rateLimitInfo,
-    execute,
-    clearError,
-    reset,
-  };
+/** Current time, refreshed every second while `active`. */
+export function useNow(active = true) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!active) return undefined;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [active]);
+  return now;
 }
 
+/** Briefly true after `trigger()`, for "Copied" confirmations. */
+export function useFlash(duration = 2000) {
+  const [on, setOn] = useState(false);
+  const timer = useRef(null);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const trigger = useCallback(() => {
+    setOn(true);
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setOn(false), duration);
+  }, [duration]);
+  return [on, trigger];
+}
+
+const HEALTH_POLL_MS = 30_000;
+const WAKING_AFTER_MS = 3_000;
+
 /**
- * Hook for managing multiple independent API calls
- * @returns {Object} Object with call management
+ * Server status: 'checking' | 'waking' | 'ok' | 'degraded' | 'offline'.
+ * 'waking' means the first check is taking long enough that the host is
+ * probably starting up from sleep.
  */
-export function useApiState() {
-  const [state, setState] = useState({
-    loading: false,
-    error: null,
-    data: null,
-    rateLimitInfo: null,
-  });
+export function useHealth() {
+  const [status, setStatus] = useState('checking');
 
-  const setLoading = useCallback((loading) => {
-    setState((prev) => ({ ...prev, loading }));
+  useEffect(() => {
+    let cancelled = false;
+    let settledOnce = false;
+
+    const wakingTimer = setTimeout(() => {
+      if (!cancelled && !settledOnce) setStatus('waking');
+    }, WAKING_AFTER_MS);
+
+    const check = async () => {
+      if (document.visibilityState === 'hidden') return;
+      try {
+        const { ok } = await getHealth();
+        if (!cancelled) setStatus(ok ? 'ok' : 'degraded');
+      } catch {
+        if (!cancelled) setStatus('offline');
+      } finally {
+        settledOnce = true;
+      }
+    };
+
+    check();
+    const poll = setInterval(check, HEALTH_POLL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') check();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(wakingTimer);
+      clearInterval(poll);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
-  const setError = useCallback((error) => {
-    setState((prev) => ({ ...prev, error }));
+  return status;
+}
+
+function systemTheme() {
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+/** Follows the system theme until the person picks one explicitly. */
+export function useTheme() {
+  const [preference, setPreference] = useState(loadThemePreference);
+  const [system, setSystem] = useState(systemTheme);
+
+  useEffect(() => {
+    const query = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = () => setSystem(systemTheme());
+    query.addEventListener('change', onChange);
+    return () => query.removeEventListener('change', onChange);
   }, []);
 
-  const setData = useCallback((data) => {
-    setState((prev) => ({ ...prev, data }));
-  }, []);
+  const theme = preference ?? system;
 
-  const setRateLimitInfo = useCallback((rateLimitInfo) => {
-    setState((prev) => ({ ...prev, rateLimitInfo }));
-  }, []);
+  useEffect(() => {
+    if (preference) document.documentElement.dataset.theme = preference;
+    else delete document.documentElement.dataset.theme;
+  }, [preference]);
 
-  const clearError = useCallback(() => {
-    setState((prev) => ({ ...prev, error: null }));
-  }, []);
+  const toggle = useCallback(() => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    // Choosing what the system already shows means "follow the system again".
+    const value = next === systemTheme() ? null : next;
+    saveThemePreference(value);
+    setPreference(value);
+  }, [theme]);
 
-  const reset = useCallback(() => {
-    setState({
-      loading: false,
-      error: null,
-      data: null,
-      rateLimitInfo: null,
-    });
-  }, []);
-
-  return {
-    ...state,
-    setLoading,
-    setError,
-    setData,
-    setRateLimitInfo,
-    clearError,
-    reset,
-  };
+  return [theme, toggle];
 }

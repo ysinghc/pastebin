@@ -1,195 +1,128 @@
 /**
- * API client utility for pastebin service
- * Handles requests to the backend with proper error handling
+ * Client for the pastebin API.
+ *
+ * Every failure is thrown as an ApiError carrying a `kind` the UI can branch
+ * on and a message written for the person reading it.
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const PRODUCTION_API = 'https://ysinghc-pastebin-api.hf.space';
 
-// Error messages based on backend error types
-const ERROR_MESSAGES = {
-  'service_unavailable': 'Storage backend is unreachable. Please try again later.',
-  'gateway_timeout': 'Request timed out. Please try again.',
-  'storage_error': 'A storage error occurred. Please try again later.',
-  'not_found': 'Paste not found or has expired.',
-  'http_error': 'An error occurred.',
-  'network_error': 'Network error. Please check your connection.',
-  'parse_error': 'Failed to parse response from server.',
-};
+export const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.DEV ? 'http://localhost:8080' : PRODUCTION_API)
+).replace(/\/+$/, '');
 
-// Rate limit headers
-export const RATE_LIMIT_HEADERS = {
-  LIMIT: 'X-RateLimit-Limit',
-  REMAINING: 'X-RateLimit-Remaining',
-  RESET: 'X-RateLimit-Reset',
-  RESET_AFTER: 'X-RateLimit-Reset-After',
-};
+// The API runs on a host that sleeps when idle, so the first request after a
+// quiet spell can take a while. Give it room before calling it a timeout.
+const REQUEST_TIMEOUT_MS = 60_000;
 
-class APIError extends Error {
-  constructor(message, status, error, headers = {}) {
+export const MAX_PASTE_BYTES = 50 * 1024;
+export const PASTE_ID_PATTERN = /^[A-Za-z0-9_-]{4,64}$/;
+
+export class ApiError extends Error {
+  constructor(kind, message, { status = 0, retryAfterSeconds = null } = {}) {
     super(message);
-    this.name = 'APIError';
+    this.name = 'ApiError';
+    this.kind = kind;
     this.status = status;
-    this.error = error;
-    this.headers = headers;
-    this.rateLimitInfo = extractRateLimitInfo(headers);
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 
-/**
- * Extract rate limit information from response headers
- */
-function extractRateLimitInfo(headers) {
-  const info = {};
-  
-  if (headers[RATE_LIMIT_HEADERS.LIMIT]) {
-    info.limit = parseInt(headers[RATE_LIMIT_HEADERS.LIMIT]);
-  }
-  if (headers[RATE_LIMIT_HEADERS.REMAINING]) {
-    info.remaining = parseInt(headers[RATE_LIMIT_HEADERS.REMAINING]);
-  }
-  if (headers[RATE_LIMIT_HEADERS.RESET]) {
-    info.reset = parseInt(headers[RATE_LIMIT_HEADERS.RESET]);
-  }
-  if (headers[RATE_LIMIT_HEADERS.RESET_AFTER]) {
-    info.resetAfter = parseInt(headers[RATE_LIMIT_HEADERS.RESET_AFTER]);
-  }
-
-  return Object.keys(info).length > 0 ? info : null;
+function roughly(seconds) {
+  const m = Math.max(1, Math.round(seconds / 60));
+  if (m >= 60) return m < 90 ? 'an hour' : `${Math.round(m / 60)} hours`;
+  return m === 1 ? 'a minute' : `${m} minutes`;
 }
 
-/**
- * Get user-friendly error message
- */
-function getErrorMessage(status, errorData) {
-  // Check for specific error type from backend
-  if (errorData?.error && ERROR_MESSAGES[errorData.error]) {
-    return ERROR_MESSAGES[errorData.error];
-  }
-  
-  // Check for custom message from backend
-  if (errorData?.message) {
-    return errorData.message;
-  }
+function errorFromResponse(status, body) {
+  const code = body?.error;
+  const retryAfterSeconds = body?.retry_after_seconds ?? null;
 
-  // Fall back to status code messages
-  const statusMessages = {
-    400: 'Invalid request. Please check your input.',
-    404: 'Resource not found.',
-    429: 'Rate limit exceeded. Please wait before trying again.',
-    503: 'Service temporarily unavailable. Please try again later.',
-    504: 'Request timed out. Please try again.',
-  };
-
-  return statusMessages[status] || 'An unexpected error occurred.';
+  if (status === 404) {
+    return new ApiError('not_found', 'This paste does not exist or has already expired.', { status });
+  }
+  if (status === 413) {
+    return new ApiError('too_large', 'This paste is over the 50 KB limit. Shorten it and publish again.', { status });
+  }
+  if (status === 429) {
+    const wait = retryAfterSeconds ? ` Try again in about ${roughly(retryAfterSeconds)}.` : '';
+    const what =
+      body?.limit_type === 'bandwidth'
+        ? 'You have reached the 500 KB hourly upload limit.'
+        : body?.limit_type === 'paste_count'
+          ? 'You have reached the limit of 20 pastes per hour.'
+          : 'Too many requests from your network.';
+    return new ApiError('rate_limited', what + wait, { status, retryAfterSeconds });
+  }
+  if (status === 422) {
+    return new ApiError('invalid', 'The server rejected this paste. Check that it is not empty.', { status });
+  }
+  if (status === 504 || code === 'gateway_timeout') {
+    return new ApiError('unavailable', 'Storage did not respond in time. Try again in a moment.', { status });
+  }
+  if (status === 503 || code === 'service_unavailable' || code === 'storage_error') {
+    return new ApiError('unavailable', 'Storage is unreachable right now. Try again in a few minutes.', { status });
+  }
+  return new ApiError('unknown', body?.message || `The server answered with an error (${status}).`, { status });
 }
 
-/**
- * Create a paste
- */
-export async function createPaste(content, ttl = '10m') {
+async function request(path, options = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let response;
   try {
-    const response = await fetch(`${API_BASE_URL}/paste`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ content, ttl }),
-    });
-
-    const headers = Object.fromEntries(response.headers.entries());
-    const data = await response.json();
-
-    if (!response.ok) {
-      const message = getErrorMessage(response.status, data);
-      throw new APIError(message, response.status, data, headers);
+    response = await fetch(`${API_BASE_URL}${path}`, { ...options, signal: controller.signal });
+  } catch (cause) {
+    if (cause?.name === 'AbortError') {
+      throw new ApiError('timeout', 'The server took too long to answer. Try again.');
     }
+    throw new ApiError('network', 'Could not reach the server. Check your connection and try again.');
+  } finally {
+    clearTimeout(timer);
+  }
 
-    return { data, rateLimitInfo: extractRateLimitInfo(headers) };
-  } catch (error) {
-    if (error instanceof APIError) {
-      throw error;
-    }
-    
-    if (error instanceof TypeError) {
-      throw new APIError(ERROR_MESSAGES.network_error, 0, { error: 'network_error' });
-    }
+  let body = null;
+  try {
+    body = await response.json();
+  } catch {
+    // Non-JSON bodies only happen on unexpected errors; handled below.
+  }
 
-    throw new APIError(
-      ERROR_MESSAGES.parse_error,
-      0,
-      { error: 'parse_error', originalError: error.message }
+  if (!response.ok) throw errorFromResponse(response.status, body);
+  if (body === null) throw new ApiError('unknown', 'The server sent a response this page could not read.');
+  return body;
+}
+
+/** @returns {Promise<{id: string, expires_in: string, size_bytes: number}>} */
+export function createPaste(content, ttl) {
+  return request('/paste', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content, ttl }),
+  });
+}
+
+/** @returns {Promise<{content: string, ttl_remaining_seconds: number}>} */
+export function getPaste(id) {
+  if (!PASTE_ID_PATTERN.test(id)) {
+    return Promise.reject(
+      new ApiError('invalid_id', 'That is not a valid paste ID. IDs use only letters, digits, hyphens and underscores.'),
     );
   }
+  return request(`/paste/${encodeURIComponent(id)}`);
 }
 
-/**
- * Retrieve a paste
- */
-export async function getPaste(pasteId) {
-  // Sanitize pasteId to prevent path traversal or URL injection
-  // The backend uses urlsafe base64, so it should only contain alphanumeric and -_
-  const sanitizedId = pasteId.trim();
-  if (!/^[A-Za-z0-9_-]+$/.test(sanitizedId)) {
-    throw new APIError('Invalid Paste ID format. ID must be alphanumeric.', 400, { error: 'invalid_id' });
-  }
-
-  try {
-    const response = await fetch(`${API_BASE_URL}/paste/${encodeURIComponent(sanitizedId)}`);
-    
-    const headers = Object.fromEntries(response.headers.entries());
-    const data = await response.json();
-
-    if (!response.ok) {
-      const message = getErrorMessage(response.status, data);
-      throw new APIError(message, response.status, data, headers);
-    }
-
-    return { data, rateLimitInfo: extractRateLimitInfo(headers) };
-  } catch (error) {
-    if (error instanceof APIError) {
-      throw error;
-    }
-
-    if (error instanceof TypeError) {
-      throw new APIError(ERROR_MESSAGES.network_error, 0, { error: 'network_error' });
-    }
-
-    throw new APIError(
-      ERROR_MESSAGES.parse_error,
-      0,
-      { error: 'parse_error', originalError: error.message }
-    );
-  }
-}
-
-/**
- * Check service health
- */
+/** Resolves with the health body for both healthy and degraded answers. */
 export async function getHealth() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const response = await fetch(`${API_BASE_URL}/health`);
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new APIError(
-        'Health check failed',
-        response.status,
-        data
-      );
-    }
-
-    return data;
-  } catch (error) {
-    if (error instanceof APIError) {
-      throw error;
-    }
-
-    throw new APIError(
-      ERROR_MESSAGES.network_error,
-      0,
-      { error: 'network_error' }
-    );
+    const response = await fetch(`${API_BASE_URL}/health`, { signal: controller.signal });
+    const body = await response.json();
+    return { ok: response.ok && body?.status === 'ok', body };
+  } finally {
+    clearTimeout(timer);
   }
 }
-
-export { APIError };

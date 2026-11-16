@@ -1,6 +1,6 @@
 //generated using gemma 4 31b
 export default {
-  async scheduled(event, env, ctx) {
+  async scheduled() {
     const TARGET_URL = "https://ysinghc-pastebin-api.hf.space/health";
 
     console.log(`Pinging keep-alive endpoint: ${TARGET_URL}`);

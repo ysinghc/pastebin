@@ -1,105 +1,113 @@
-import { useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { Omnibox, FluidCreator, FluidViewer, HealthStatus } from './components';
-import './App.css';
+import { Moon, Plus, Sun } from 'lucide-react';
+import { useHealth, useTheme } from './hooks';
+import { linkHandler, parsePath, usePathname } from './lib/router';
+import { Composer } from './components/Composer';
+import { MessagePage, PasteView } from './components/PasteView';
+import { Notice } from './components/controls';
 
-function App() {
-  // mode can be: 'idle', 'creating', 'retrieving'
-  const [mode, setMode] = useState('idle');
-  
-  // Data passed between states
-  const [initialPasteContent, setInitialPasteContent] = useState('');
-  const [retrievalPasteId, setRetrievalPasteId] = useState('');
+const HEALTH_LABEL = {
+  checking: 'Checking the server',
+  waking: 'Waking the server',
+  ok: 'Server ready',
+  degraded: 'Storage unreachable',
+  offline: 'Server unreachable',
+};
 
-  const handleOmniboxAction = (action, value) => {
-    if (action === 'create') {
-      setInitialPasteContent(value);
-      setMode('creating');
-    } else if (action === 'retrieve') {
-      setRetrievalPasteId(value);
-      setMode('retrieving');
-    }
-  };
+function HealthNotice({ status }) {
+  if (status === 'waking') {
+    return (
+      <Notice tone="info" title="Waking the server.">
+        It sleeps when idle, so the first request can take up to a minute.
+      </Notice>
+    );
+  }
+  if (status === 'degraded') {
+    return (
+      <Notice tone="warn" title="Storage is unreachable.">
+        Publishing and opening pastes will fail until it is back. Checking again every 30 seconds.
+      </Notice>
+    );
+  }
+  if (status === 'offline') {
+    return (
+      <Notice tone="warn" title="The server is unreachable.">
+        Check your connection. Checking again every 30 seconds.
+      </Notice>
+    );
+  }
+  return null;
+}
 
-  const handleCancel = () => {
-    setMode('idle');
-    setInitialPasteContent('');
-    setRetrievalPasteId('');
-  };
+export default function App() {
+  const pathname = usePathname();
+  const route = parsePath(pathname);
+  const health = useHealth();
+  const [theme, toggleTheme] = useTheme();
 
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-black text-white/70">
+    <div className="app">
+      <a className="skip-link" href="#main">
+        Skip to content
+      </a>
 
-      {/* Header Branding */}
-      <header className="w-full max-w-5xl mx-auto px-6 pt-8 pb-6 flex justify-between items-center border-b border-neutral-900">
-        <button 
-          onClick={handleCancel}
-          className="text-white font-mono tracking-[0.25em] text-sm uppercase cursor-pointer hover:opacity-85 transition-opacity bg-transparent border-0 p-0 focus:outline-none focus-visible:ring-1 focus-visible:ring-white/50"
-          aria-label="Pastebin homepage"
-        >
-          Pastebin
-        </button>
-        <HealthStatus inline={true} />
+      <header className="masthead">
+        <a className="wordmark" href="/" onClick={linkHandler('/')} aria-label="Pastebin, new paste">
+          <span className="wordmark__ticks" aria-hidden="true" />
+          pastebin
+        </a>
+        <nav className="masthead__nav" aria-label="Site">
+          {route.name !== 'new' && (
+            <a className="button button--outline" href="/" onClick={linkHandler('/')}>
+              <Plus size={16} aria-hidden="true" />
+              <span>New paste</span>
+            </a>
+          )}
+          <button
+            type="button"
+            className="button button--quiet button--icon"
+            onClick={toggleTheme}
+            aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+            title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+          >
+            {theme === 'dark' ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
+          </button>
+        </nav>
       </header>
 
-      {/* Main Orchestration Area */}
-      <main className="flex-1 w-full max-w-5xl mx-auto px-6 py-8 flex flex-col justify-center">
-        <AnimatePresence mode="wait">
-          
-          {mode === 'idle' && (
-            <motion.div
-              key="idle"
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -15 }}
-              transition={{ duration: 0.2 }}
-            >
-              <h1 className="text-4xl sm:text-5xl font-extralight tracking-[0.25em] uppercase text-white/95 text-center mb-10 select-none">
-                Pastebin
-              </h1>
-              <Omnibox onAction={handleOmniboxAction} />
-            </motion.div>
-          )}
-
-          {mode === 'creating' && (
-            <motion.div
-              key="creating"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              <FluidCreator initialContent={initialPasteContent} onCancel={handleCancel} />
-            </motion.div>
-          )}
-
-          {mode === 'retrieving' && (
-            <motion.div
-              key="retrieving"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              <FluidViewer pasteId={retrievalPasteId} onCancel={handleCancel} />
-            </motion.div>
-          )}
-
-        </AnimatePresence>
+      <main id="main" className="main" tabIndex={-1}>
+        <HealthNotice status={health} />
+        {route.name === 'new' && <Composer />}
+        {route.name === 'view' && <PasteView key={route.id} id={route.id} routeLanguage={route.language} />}
+        {route.name === 'unknown' && (
+          <MessagePage
+            title="Nothing at this address"
+            actions={
+              <a className="button button--primary" href="/" onClick={linkHandler('/')}>
+                Write a new paste
+              </a>
+            }
+          >
+            Paste links look like <code className="inline-code">{window.location.host}/aB3x_9kLm2Q</code>. Check the
+            link for missing or extra characters.
+          </MessagePage>
+        )}
       </main>
 
-      {/* Creator/Coded By Footer */}
-      <footer className="w-full max-w-5xl mx-auto px-6 py-8 border-t border-neutral-900 flex flex-col sm:flex-row justify-between items-center text-[10px] font-mono tracking-[0.2em] text-white/30 gap-4">
-        <div>
-          CODED BY <a href="https://ysinghc.in" target="_blank" rel="noopener noreferrer" className="text-white/50 hover:text-white transition-colors underline decoration-white/10 underline-offset-4">YSINGHC.IN</a>
-        </div>
-        <div className="uppercase">
-          &copy; {new Date().getFullYear()} PASTEBIN. ALL RIGHTS RESERVED.
-        </div>
+      <footer className="colophon">
+        <p className="colophon__rules">
+          Anyone with the link can read a paste. Each one holds up to 50 KB, and you can publish 20 an hour.
+        </p>
+        <p className={`status status--${health}`} role="status">
+          <span className="status__dot" aria-hidden="true" />
+          {HEALTH_LABEL[health]}
+        </p>
+        <p className="colophon__credit">
+          Built by{' '}
+          <a href="https://ysinghc.in" target="_blank" rel="noopener noreferrer">
+            ysinghc.in
+          </a>
+        </p>
       </footer>
-
     </div>
   );
 }
-
-export default App;

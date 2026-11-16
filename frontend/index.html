@@ -2,13 +2,27 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Pastebin</title>
-    <meta name="description" content="An elegant and minimalist pastebin tool for sharing code snippets and plain text." />
+    <title>Pastebin: text that deletes itself</title>
+    <meta
+      name="description"
+      content="Paste text or code, publish it, and share the link. The paste is deleted after 10 minutes or 1 hour."
+    />
+    <meta name="theme-color" content="#e8ebea" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#111318" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://ysinghc-pastebin-api.hf.space" crossorigin />
+    <script>
+      // Apply a saved theme choice before first paint so the page never flashes.
+      try {
+        var theme = JSON.parse(localStorage.getItem('pastebin:theme'));
+        if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>Pastebin needs JavaScript to publish and open pastes.</noscript>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

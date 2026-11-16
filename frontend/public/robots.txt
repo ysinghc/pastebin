@@ -1,0 +1,5 @@
+# Pastes are short-lived and meant for whoever holds the link, so only the
+# home page is open to crawlers.
+User-agent: *
+Allow: /$
+Disallow: /
